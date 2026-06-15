@@ -6,7 +6,7 @@ import passport from 'passport';
 import { Strategy as LocalStrategy } from 'passport-local';
 
 import { verifyCredentials, getUserById } from './services/AuthService.js';
-import { AppError, UnauthorizedError } from './errors/AppError.js';
+import { AppError, UnauthorizedError, NotFoundError } from './errors/AppError.js';
 import { networkService } from './services/NetworkService.js';
 
 // ─── Passport ─────────────────────────────────────────────────────────────────
@@ -79,22 +79,27 @@ app.post('/api/sessions', (req, res, next) => {
   })(req, res, next);
 });
 
-app.get('/api/sessions/current', (req, res) => {
+app.get('/api/sessions/current', (req, res, next) => {
   if (req.isAuthenticated()) return res.json(req.user);
-  res.status(401).json({ error: 'Not authenticated' });
+  next(new UnauthorizedError());
 });
 
-app.delete('/api/sessions/current', (req, res, next) => {
+app.delete('/api/sessions/current', isLoggedIn, (req, res, next) => {
   req.logout(err => {
     if (err) return next(err);
     res.status(204).end();
   });
 });
 
-// ─── Error middleware ──────────────────────────────────────────────────────────
+// ─── 404 + Error middleware ────────────────────────────────────────────────────
+
+app.use((_req, _res, next) => next(new NotFoundError('Route not found')));
 
 // eslint-disable-next-line no-unused-vars
 app.use((err, _req, res, _next) => {
+  if (err.type === 'entity.parse.failed') {
+    return res.status(400).json({ error: 'Invalid JSON in request body' });
+  }
   const status = err instanceof AppError ? err.status : 500;
   const body = { error: err.message };
   if (err.errors) body.errors = err.errors;

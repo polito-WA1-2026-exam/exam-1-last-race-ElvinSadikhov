@@ -7,6 +7,7 @@ import { Strategy as LocalStrategy } from 'passport-local';
 
 import { getUserByCredentials, getUserById } from './dao/usersDao.js';
 import { AppError } from './errors/AppError.js';
+import { networkService } from './services/NetworkService.js';
 
 // ─── Passport ─────────────────────────────────────────────────────────────────
 
@@ -59,6 +60,12 @@ export function isLoggedIn(req, res, next) {
   res.status(401).json({ error: 'Not authenticated' });
 }
 
+// ─── Network routes ───────────────────────────────────────────────────────────
+
+app.get('/api/network', (_req, res) => {
+  res.json(networkService.getNetworkData());
+});
+
 // ─── Auth routes ──────────────────────────────────────────────────────────────
 
 app.post('/api/sessions', (req, res, next) => {
@@ -99,6 +106,8 @@ process.on('unhandledRejection', err => console.error('Unhandled rejection:', er
 
 // ─── Start ────────────────────────────────────────────────────────────────────
 
-app.listen(PORT, () => console.log(`Server running at http://localhost:${PORT}`));
+networkService.init()
+  .then(() => app.listen(PORT, () => console.log(`Server running at http://localhost:${PORT}`)))
+  .catch(err => { console.error('Failed to init NetworkService:', err); process.exit(1); });
 
 export default app;

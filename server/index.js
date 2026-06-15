@@ -5,8 +5,8 @@ import session from 'express-session';
 import passport from 'passport';
 import { Strategy as LocalStrategy } from 'passport-local';
 
-import { getUserByCredentials, getUserById } from './dao/usersDao.js';
-import { AppError } from './errors/AppError.js';
+import { verifyCredentials, getUserById } from './services/AuthService.js';
+import { AppError, UnauthorizedError } from './errors/AppError.js';
 import { networkService } from './services/NetworkService.js';
 
 // ─── Passport ─────────────────────────────────────────────────────────────────
@@ -15,7 +15,7 @@ passport.use(new LocalStrategy(
   { usernameField: 'email' },
   async (email, password, done) => {
     try {
-      const user = await getUserByCredentials(email, password);
+      const user = await verifyCredentials(email, password);
       done(null, user);
     } catch (err) {
       done(null, false, { message: err.message });
@@ -55,9 +55,9 @@ app.use(passport.authenticate('session'));
 
 // ─── Middleware helpers ────────────────────────────────────────────────────────
 
-export function isLoggedIn(req, res, next) {
+export function isLoggedIn(req, _res, next) {
   if (req.isAuthenticated()) return next();
-  res.status(401).json({ error: 'Not authenticated' });
+  next(new UnauthorizedError());
 }
 
 // ─── Network routes ───────────────────────────────────────────────────────────
@@ -102,7 +102,7 @@ app.use((err, _req, res, _next) => {
   res.status(status).json(body);
 });
 
-process.on('unhandledRejection', err => console.error('Unhandled rejection:', err));
+process.on('unhandledRejection', err => { console.error('Unhandled rejection:', err); process.exit(1); });
 
 // ─── Start ────────────────────────────────────────────────────────────────────
 

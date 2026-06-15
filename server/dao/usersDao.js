@@ -1,9 +1,5 @@
-import { scrypt, timingSafeEqual } from 'crypto';
-import { promisify } from 'util';
 import db from '../db.js';
-import { DatabaseError, UnauthorizedError } from '../errors/AppError.js';
-
-const scryptAsync = promisify(scrypt);
+import { DatabaseError } from '../errors/AppError.js';
 
 function getUser(sql, params) {
   return new Promise((resolve, reject) =>
@@ -14,26 +10,10 @@ function getUser(sql, params) {
   );
 }
 
-export async function getUserById(id) {
-  const row = await getUser('SELECT id, email, name FROM users WHERE id = ?', [id]);
-  return row;
+export function getUserById(id) {
+  return getUser('SELECT id, email, name FROM users WHERE id = ?', [id]);
 }
 
-export async function getUserByCredentials(email, password) {
-  const row = await getUser(
-    'SELECT id, email, name, hash, salt FROM users WHERE email = ?',
-    [email]
-  );
-
-  if (!row) throw new UnauthorizedError('Wrong email or password');
-
-  const hashBuf = await scryptAsync(password, row.salt, 64);
-  const storedBuf = Buffer.from(row.hash, 'hex');
-
-  const match = hashBuf.length === storedBuf.length &&
-    timingSafeEqual(hashBuf, storedBuf);
-
-  if (!match) throw new UnauthorizedError('Wrong email or password');
-
-  return { id: row.id, email: row.email, name: row.name };
+export function getUserRowByEmail(email) {
+  return getUser('SELECT id, email, name, hash, salt FROM users WHERE email = ?', [email]);
 }

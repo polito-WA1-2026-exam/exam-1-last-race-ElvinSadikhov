@@ -5,19 +5,15 @@ class NetworkService {
     this._lines = [];
     this._stations = [];
     this._lineStations = [];
-    // stationId → name
-    this._stationMap = new Map();
-    // stationId → Set<stationId> (direct neighbours on same line)
-    this._adj = new Map();
-    // "minId-maxId" → Set<lineId>  (which lines serve each edge; canonical key)
+    // stationId → { id, name, lines: Set<lineId>, neighbours: Set<stationId> }
+    this._stationIndex = new Map();
+    // "minId-maxId" → Set<lineId>  (canonical key: smaller ID first)
     this._edgeLines = new Map();
-    // Set<stationId> — stations served by more than one line
-    this._interchanges = new Set();
-    // "startId-destId" → min stops (precomputed BFS for all reachable pairs)
+    // "startId-destId" → min stops (precomputed at startup)
     this._distMatrix = new Map();
-    // flat array of valid pair keys for O(1) random pick
+    // all reachable pairs, for O(1) random pick
     this._validPairsArray = [];
-    // subset of _validPairsArray where distance >= 3 (game requirement)
+    // subset where minStops >= 3 (game start/dest requirement)
     this._gamePairsArray = [];
     this._ready = false;
   }
@@ -32,56 +28,51 @@ class NetworkService {
     this._lines = lines;
     this._lineStations = lineStations;
     this._stations = stations;
-    this._stationMap = new Map(stations.map(s => [s.id, s.name]));
 
-    // Build adjacency: consecutive stations on the same line are neighbours
+    // Build station index: one entry per station with name, lines, neighbours
+    for (const s of stations) {
+      this._stationIndex.set(s.id, { id: s.id, name: s.name, lines: new Set(), neighbours: new Set() });
+    }
+
+    // Group stops by line, then populate lines/neighbours/edgeLines
     const byLine = new Map();
     for (const row of lineStations) {
       if (!byLine.has(row.line_id)) byLine.set(row.line_id, []);
       byLine.get(row.line_id).push(row);
-    }
-    // Count lines per station to find interchanges
-    const stationLineCount = new Map();
-    for (const row of lineStations) {
-      if (!stationLineCount.has(row.station_id)) stationLineCount.set(row.station_id, new Set());
-      stationLineCount.get(row.station_id).add(row.line_id);
-    }
-    for (const [stationId, lines] of stationLineCount) {
-      if (lines.size > 1) this._interchanges.add(stationId);
+      this._stationIndex.get(row.station_id)?.lines.add(row.line_id);
     }
 
     for (const stops of byLine.values()) {
       stops.sort((a, b) => a.position - b.position);
-      for (let i = 0; i < stops.length; i++) {
-        const sid = stops[i].station_id;
-        if (!this._adj.has(sid)) this._adj.set(sid, new Set());
-        if (i > 0) {
-          const prev = stops[i - 1].station_id;
-          this._adj.get(sid).add(prev);
-          this._adj.get(prev).add(sid);
-          // Record which line(s) serve this edge (canonical key: smaller id first)
-          const edgeKey = `${Math.min(sid, prev)}-${Math.max(sid, prev)}`;
-          if (!this._edgeLines.has(edgeKey)) this._edgeLines.set(edgeKey, new Set());
-          this._edgeLines.get(edgeKey).add(stops[i].line_id);
-        }
+      for (let i = 1; i < stops.length; i++) {
+        const a = stops[i - 1].station_id;
+        const b = stops[i].station_id;
+        const lineId = stops[i].line_id;
+
+        this._stationIndex.get(a)?.neighbours.add(b);
+        this._stationIndex.get(b)?.neighbours.add(a);
+
+        const edgeKey = `${Math.min(a, b)}-${Math.max(a, b)}`;
+        if (!this._edgeLines.has(edgeKey)) this._edgeLines.set(edgeKey, new Set());
+        this._edgeLines.get(edgeKey).add(lineId);
       }
     }
 
-    // BFS from every station — builds distance matrix and valid pairs list
-    for (const start of stations) {
-      const visited = new Map([[start.id, 0]]); // stationId → distance
-      const queue = [start.id];
+    // BFS from every station — precompute distance matrix + valid pair arrays
+    for (const s of stations) {
+      const visited = new Map([[s.id, 0]]);
+      const queue = [s.id];
       while (queue.length) {
         const cur = queue.shift();
         const dist = visited.get(cur);
-        for (const nb of (this._adj.get(cur) ?? [])) {
+        for (const nb of (this._stationIndex.get(cur)?.neighbours ?? [])) {
           if (!visited.has(nb)) {
             const d = dist + 1;
             visited.set(nb, d);
             queue.push(nb);
-            this._distMatrix.set(`${start.id}-${nb}`, d);
-            this._validPairsArray.push(`${start.id}-${nb}`);
-            if (d >= 3) this._gamePairsArray.push(`${start.id}-${nb}`);
+            this._distMatrix.set(`${s.id}-${nb}`, d);
+            this._validPairsArray.push(`${s.id}-${nb}`);
+            if (d >= 3) this._gamePairsArray.push(`${s.id}-${nb}`);
           }
         }
       }
@@ -90,11 +81,11 @@ class NetworkService {
     this._ready = true;
     console.log(
       `NetworkService ready — ${stations.length} stations, ` +
-      `${this._validPairsArray.length} valid pairs`
+      `${this._gamePairsArray.length} game pairs (≥3 stops)`
     );
   }
 
-  // Returns lines with their ordered stations embedded, plus flat stations list
+  // Returns enriched lines with ordered stations embedded + flat stations list
   getNetworkData() {
     const byLine = new Map(this._lines.map(l => [l.id, { ...l, stations: [] }]));
     for (const row of this._lineStations) {
@@ -117,18 +108,18 @@ class NetworkService {
     return this._distMatrix.has(`${startId}-${destId}`);
   }
 
-  // O(1) — picks from pre-built array
-  getRandomValidPair() {
-    const key = this._validPairsArray[
-      Math.floor(Math.random() * this._validPairsArray.length)
+  // O(1) — picks from pre-built array filtered to distance >= 3
+  getRandomGamePair() {
+    const key = this._gamePairsArray[
+      Math.floor(Math.random() * this._gamePairsArray.length)
     ];
     const [startId, destId] = key.split('-').map(Number);
     return { startId, destId };
   }
 
-  // O(1) map lookup
+  // O(1) — single index lookup
   getStationName(id) {
-    return this._stationMap.get(id) ?? null;
+    return this._stationIndex.get(id)?.name ?? null;
   }
 
   // O(1) — distance matrix precomputed at startup
@@ -137,23 +128,15 @@ class NetworkService {
     return this._distMatrix.get(`${startId}-${destId}`) ?? Infinity;
   }
 
-  // Returns Set<lineId> for the edge between a and b. Empty set = edge doesn't exist.
+  // O(1) — returns Set<lineId> for the edge, empty Set if edge doesn't exist
   getEdgeLines(a, b) {
     const key = `${Math.min(a, b)}-${Math.max(a, b)}`;
     return this._edgeLines.get(key) ?? new Set();
   }
 
+  // O(1) — interchange = served by more than one line
   isInterchange(stationId) {
-    return this._interchanges.has(stationId);
-  }
-
-  // Random pair guaranteed to have minStops >= 3 (game requirement)
-  getRandomGamePair() {
-    const key = this._gamePairsArray[
-      Math.floor(Math.random() * this._gamePairsArray.length)
-    ];
-    const [startId, destId] = key.split('-').map(Number);
-    return { startId, destId };
+    return (this._stationIndex.get(stationId)?.lines.size ?? 0) > 1;
   }
 }
 

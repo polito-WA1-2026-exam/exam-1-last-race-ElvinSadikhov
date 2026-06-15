@@ -19,9 +19,6 @@ class NetworkService {
     /** @type {Map<string, number>} "startId-destId" → min stops */
     this._distMatrix = new Map();
 
-    /** @type {string[]} all reachable pairs as "startId-destId" strings */
-    this._validPairsArray = [];
-
     /** @type {string[]} pairs where minStops >= 3 (game requirement) */
     this._gamePairsArray = [];
 
@@ -98,7 +95,6 @@ class NetworkService {
             visited.set(nb, d);
             queue.push(nb);
             this._distMatrix.set(`${s.id}-${nb}`, d);
-            this._validPairsArray.push(`${s.id}-${nb}`);
             if (d >= 3) this._gamePairsArray.push(`${s.id}-${nb}`);
           }
         }

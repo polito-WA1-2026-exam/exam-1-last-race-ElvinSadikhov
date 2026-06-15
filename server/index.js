@@ -46,7 +46,7 @@ app.use(cors({
   credentials: true,
 }));
 app.use(session({
-  secret: 'lastrace-secret-key',
+  secret: 'lastrace-secret-key', // in production: read from env var
   resave: false,
   saveUninitialized: false,
   cookie: { httpOnly: true, sameSite: 'lax' },
@@ -71,7 +71,7 @@ app.get('/api/network', (_req, res) => {
 app.post('/api/sessions', (req, res, next) => {
   passport.authenticate('local', (err, user, info) => {
     if (err) return next(err);
-    if (!user) return res.status(401).json({ error: info?.message ?? 'Login failed' });
+    if (!user) return next(new UnauthorizedError(info?.message ?? 'Login failed'));
     req.login(user, err => {
       if (err) return next(err);
       res.json(user);

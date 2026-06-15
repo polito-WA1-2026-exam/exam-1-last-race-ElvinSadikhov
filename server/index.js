@@ -97,7 +97,7 @@ app.use((_req, _res, next) => next(new NotFoundError('Route not found')));
 
 // eslint-disable-next-line no-unused-vars
 app.use((err, _req, res, _next) => {
-  if (err.type === 'entity.parse.failed') {
+  if (err instanceof SyntaxError && err.status === 400) {
     return res.status(400).json({ error: 'Invalid JSON in request body' });
   }
   const status = err instanceof AppError ? err.status : 500;

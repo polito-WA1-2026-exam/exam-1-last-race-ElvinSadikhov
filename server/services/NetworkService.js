@@ -1,4 +1,4 @@
-import { getLines, getLineStations, getStations } from '../dao/NetworkDao.js';
+import { getLines, getLineStations, getStations } from '../dao/networkDao.js';
 
 /**
  * @typedef {{ id: number, name: string, lines: Set<number>, neighbours: Set<number> }} StationRecord

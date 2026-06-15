@@ -9,10 +9,16 @@ class NetworkService {
     this._stationMap = new Map();
     // stationId → Set<stationId> (direct neighbours on same line)
     this._adj = new Map();
+    // "minId-maxId" → Set<lineId>  (which lines serve each edge; canonical key)
+    this._edgeLines = new Map();
+    // Set<stationId> — stations served by more than one line
+    this._interchanges = new Set();
     // "startId-destId" → min stops (precomputed BFS for all reachable pairs)
     this._distMatrix = new Map();
     // flat array of valid pair keys for O(1) random pick
     this._validPairsArray = [];
+    // subset of _validPairsArray where distance >= 3 (game requirement)
+    this._gamePairsArray = [];
     this._ready = false;
   }
 
@@ -34,6 +40,16 @@ class NetworkService {
       if (!byLine.has(row.line_id)) byLine.set(row.line_id, []);
       byLine.get(row.line_id).push(row);
     }
+    // Count lines per station to find interchanges
+    const stationLineCount = new Map();
+    for (const row of lineStations) {
+      if (!stationLineCount.has(row.station_id)) stationLineCount.set(row.station_id, new Set());
+      stationLineCount.get(row.station_id).add(row.line_id);
+    }
+    for (const [stationId, lines] of stationLineCount) {
+      if (lines.size > 1) this._interchanges.add(stationId);
+    }
+
     for (const stops of byLine.values()) {
       stops.sort((a, b) => a.position - b.position);
       for (let i = 0; i < stops.length; i++) {
@@ -43,6 +59,10 @@ class NetworkService {
           const prev = stops[i - 1].station_id;
           this._adj.get(sid).add(prev);
           this._adj.get(prev).add(sid);
+          // Record which line(s) serve this edge (canonical key: smaller id first)
+          const edgeKey = `${Math.min(sid, prev)}-${Math.max(sid, prev)}`;
+          if (!this._edgeLines.has(edgeKey)) this._edgeLines.set(edgeKey, new Set());
+          this._edgeLines.get(edgeKey).add(stops[i].line_id);
         }
       }
     }
@@ -56,10 +76,12 @@ class NetworkService {
         const dist = visited.get(cur);
         for (const nb of (this._adj.get(cur) ?? [])) {
           if (!visited.has(nb)) {
-            visited.set(nb, dist + 1);
+            const d = dist + 1;
+            visited.set(nb, d);
             queue.push(nb);
-            this._distMatrix.set(`${start.id}-${nb}`, dist + 1);
+            this._distMatrix.set(`${start.id}-${nb}`, d);
             this._validPairsArray.push(`${start.id}-${nb}`);
+            if (d >= 3) this._gamePairsArray.push(`${start.id}-${nb}`);
           }
         }
       }
@@ -113,6 +135,25 @@ class NetworkService {
   minStops(startId, destId) {
     if (startId === destId) return 0;
     return this._distMatrix.get(`${startId}-${destId}`) ?? Infinity;
+  }
+
+  // Returns Set<lineId> for the edge between a and b. Empty set = edge doesn't exist.
+  getEdgeLines(a, b) {
+    const key = `${Math.min(a, b)}-${Math.max(a, b)}`;
+    return this._edgeLines.get(key) ?? new Set();
+  }
+
+  isInterchange(stationId) {
+    return this._interchanges.has(stationId);
+  }
+
+  // Random pair guaranteed to have minStops >= 3 (game requirement)
+  getRandomGamePair() {
+    const key = this._gamePairsArray[
+      Math.floor(Math.random() * this._gamePairsArray.length)
+    ];
+    const [startId, destId] = key.split('-').map(Number);
+    return { startId, destId };
   }
 }
 

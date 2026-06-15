@@ -98,8 +98,9 @@ app.use((_req, _res, next) => next(new NotFoundError('Route not found')));
 // eslint-disable-next-line no-unused-vars
 app.use((err, _req, res, _next) => {
   const status = err instanceof AppError ? err.status : (err.status ?? 500);
-  const body = { error: err.message };
-  if (err.errors) body.errors = err.errors;
+  const body = err.errors
+    ? { error: err.message, errors: err.errors }
+    : { error: err.message };
   if (status === 500) console.error(err);
   res.status(status).json(body);
 });

@@ -22,6 +22,9 @@ class NetworkService {
     /** @type {string[]} pairs where minStops >= 3 (game requirement) */
     this._gamePairsArray = [];
 
+    /** @type {{ lines: object[], stations: object[] } | null} precomputed response for GET /api/network */
+    this._networkData = null;
+
     this._ready = false;
   }
 
@@ -38,6 +41,7 @@ class NetworkService {
 
     this._buildStationIndex(stations, lineStations);
     this._buildDistanceMatrix(stations);
+    this._networkData = this._buildNetworkData();
 
     this._ready = true;
     console.log(
@@ -103,6 +107,10 @@ class NetworkService {
   }
 
   getNetworkData() {
+    return this._networkData;
+  }
+
+  _buildNetworkData() {
     const byLine = new Map(this._lines.map(l => [l.id, { ...l, stations: [] }]));
     for (const row of this._lineStations) {
       byLine.get(row.line_id)?.stations.push({

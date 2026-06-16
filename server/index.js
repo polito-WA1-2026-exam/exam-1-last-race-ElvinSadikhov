@@ -5,7 +5,7 @@ import session from 'express-session';
 import passport from 'passport';
 import { Strategy as LocalStrategy } from 'passport-local';
 
-import { verifyCredentials, getUserById } from './services/AuthService.js';
+import { verifyCredentials, getUserById } from './services/authService.js';
 import { AppError, UnauthorizedError, NotFoundError } from './errors/AppError.js';
 import { networkService } from './services/NetworkService.js';
 

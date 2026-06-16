@@ -5,6 +5,7 @@ import session from 'express-session';
 import passport from 'passport';
 import { Strategy as LocalStrategy } from 'passport-local';
 
+import { body, param, validationResult } from 'express-validator';
 import { verifyCredentials, getUserById } from './services/authService.js';
 import { startGame, submitRoute, getRanking } from './services/gameService.js';
 import { AppError, UnauthorizedError, NotFoundError, ValidationError } from './errors/AppError.js';
@@ -61,6 +62,13 @@ export function isLoggedIn(req, _res, next) {
   next(new UnauthorizedError());
 }
 
+function validate(req, _res, next) {
+  const errors = validationResult(req);
+  if (!errors.isEmpty())
+    return next(new ValidationError('Invalid request body', errors.array()));
+  next();
+}
+
 // ─── Network routes ───────────────────────────────────────────────────────────
 
 app.get('/api/network', (_req, res) => {
@@ -69,20 +77,21 @@ app.get('/api/network', (_req, res) => {
 
 // ─── Auth routes ──────────────────────────────────────────────────────────────
 
-app.post('/api/sessions', (req, res, next) => {
-  const { email, password } = req.body;
-  if (typeof email !== 'string' || !email.trim() || typeof password !== 'string' || !password)
-    return next(new ValidationError('email and password are required'));
-
-  passport.authenticate('local', (err, user, info) => {
-    if (err) return next(err);
-    if (!user) return next(new UnauthorizedError(info?.message ?? 'Login failed'));
-    req.login(user, err => {
+app.post('/api/sessions',
+  body('email').isString().withMessage('email is required').bail().trim().notEmpty().withMessage('email is required'),
+  body('password').isString().withMessage('password is required').bail().notEmpty().withMessage('password is required'),
+  validate,
+  (req, res, next) => {
+    passport.authenticate('local', (err, user, info) => {
       if (err) return next(err);
-      res.json(user);
-    });
-  })(req, res, next);
-});
+      if (!user) return next(new UnauthorizedError(info?.message ?? 'Login failed'));
+      req.login(user, err => {
+        if (err) return next(err);
+        res.json(user);
+      });
+    })(req, res, next);
+  }
+);
 
 app.get('/api/sessions/current', (req, res, next) => {
   if (req.isAuthenticated()) return res.json(req.user);
@@ -103,22 +112,20 @@ app.post('/api/games', isLoggedIn, async (req, res) => {
   res.status(201).json(result);
 });
 
-app.post('/api/games/:id/route', isLoggedIn, async (req, res, next) => {
-  const gameId = Number(req.params.id);
-  const { segments } = req.body;
-
-  if (!Number.isInteger(gameId) || gameId <= 0)
-    return next(new ValidationError('Invalid game ID'));
-  if (!Array.isArray(segments) || segments.length === 0)
-    return next(new ValidationError('segments must be a non-empty array'));
-  for (const seg of segments) {
-    if (!Number.isInteger(seg.from) || !Number.isInteger(seg.to) || seg.from === seg.to)
-      return next(new ValidationError('Each segment must have integer from ≠ to'));
+app.post('/api/games/:id/route',
+  isLoggedIn,
+  param('id').isInt({ min: 1 }).withMessage('Game ID must be a positive integer'),
+  body('segments').isArray({ min: 1 }).withMessage('segments must be a non-empty array'),
+  body('segments.*.from').isInt().withMessage('segment.from must be an integer'),
+  body('segments.*.to').isInt().withMessage('segment.to must be an integer'),
+  validate,
+  async (req, res) => {
+    const gameId = Number(req.params.id);
+    const { segments } = req.body;
+    const result = await submitRoute(gameId, req.user.id, segments);
+    res.json(result);
   }
-
-  const result = await submitRoute(gameId, req.user.id, segments);
-  res.json(result);
-});
+);
 
 // ─── Ranking route ────────────────────────────────────────────────────────────
 

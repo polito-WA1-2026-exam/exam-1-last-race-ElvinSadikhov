@@ -6,7 +6,8 @@ import passport from 'passport';
 import { Strategy as LocalStrategy } from 'passport-local';
 
 import { verifyCredentials, getUserById } from './services/authService.js';
-import { AppError, UnauthorizedError, NotFoundError } from './errors/AppError.js';
+import { startGame, submitRoute, getRanking } from './services/gameService.js';
+import { AppError, UnauthorizedError, NotFoundError, ValidationError } from './errors/AppError.js';
 import { networkService } from './services/NetworkService.js';
 
 // ─── Passport ─────────────────────────────────────────────────────────────────
@@ -89,6 +90,37 @@ app.delete('/api/sessions/current', isLoggedIn, (req, res, next) => {
     if (err) return next(err);
     res.status(204).end();
   });
+});
+
+// ─── Game routes ──────────────────────────────────────────────────────────────
+
+app.post('/api/games', isLoggedIn, async (req, res) => {
+  const result = await startGame(req.user.id);
+  res.status(201).json(result);
+});
+
+app.post('/api/games/:id/route', isLoggedIn, async (req, res, next) => {
+  const gameId = Number(req.params.id);
+  const { segments } = req.body;
+
+  if (!Number.isInteger(gameId) || gameId <= 0)
+    return next(new ValidationError('Invalid game ID'));
+  if (!Array.isArray(segments) || segments.length === 0)
+    return next(new ValidationError('segments must be a non-empty array'));
+  for (const seg of segments) {
+    if (!Number.isInteger(seg.from) || !Number.isInteger(seg.to) || seg.from === seg.to)
+      return next(new ValidationError('Each segment must have integer from ≠ to'));
+  }
+
+  const result = await submitRoute(gameId, req.user.id, segments);
+  res.json(result);
+});
+
+// ─── Ranking route ────────────────────────────────────────────────────────────
+
+app.get('/api/ranking', isLoggedIn, async (_req, res) => {
+  const ranking = await getRanking();
+  res.json(ranking);
 });
 
 // ─── 404 + Error middleware ────────────────────────────────────────────────────

@@ -4,10 +4,10 @@ import { login } from '../api.js';
 import { useUser } from '../context/UserContext.jsx';
 
 const PHASES = [
-  { color: 'var(--line-red)',    label: 'Setup',     desc: 'Study the full metro network map before the race begins.' },
-  { color: 'var(--line-blue)',   label: 'Planning',  desc: 'Build your route in 90 seconds — lines are hidden.' },
-  { color: 'var(--line-green)',  label: 'Execution', desc: 'Travel each segment and face random events along the way.' },
-  { color: 'var(--line-yellow)', label: 'Result',    desc: 'See how many coins you have left. Best score goes to the ranking.' },
+  { color: 'var(--line-red)',    textColor: '#fff',     label: 'Setup',     desc: 'Study the full metro network map before the race begins.' },
+  { color: 'var(--line-blue)',   textColor: '#fff',     label: 'Planning',  desc: 'Build your route in 90 seconds — lines are hidden.' },
+  { color: 'var(--line-green)',  textColor: '#fff',     label: 'Execution', desc: 'Travel each segment and face random events along the way.' },
+  { color: 'var(--line-yellow)', textColor: '#1A1614',  label: 'Result',    desc: 'See how many coins you have left. Best score goes to the ranking.' },
 ];
 
 export default function LoginPage() {
@@ -45,7 +45,7 @@ export default function LoginPage() {
         <ol className="lr-phases">
           {PHASES.map((p, i) => (
             <li key={i} className="lr-phase-item">
-              <span className="lr-phase-num" style={{ background: p.color, color: p.color === 'var(--line-yellow)' ? '#1A1614' : '#fff' }}>
+              <span className="lr-phase-num" style={{ background: p.color, color: p.textColor }}>
                 {i + 1}
               </span>
               <div>

@@ -7,7 +7,7 @@ export default function Navbar() {
   const navigate = useNavigate();
 
   const handleLogout = async () => {
-    await logout();
+    try { await logout(); } catch { /* session may already be gone */ }
     setUser(null);
     navigate('/');
   };

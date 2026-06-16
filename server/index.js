@@ -70,6 +70,10 @@ app.get('/api/network', (_req, res) => {
 // ─── Auth routes ──────────────────────────────────────────────────────────────
 
 app.post('/api/sessions', (req, res, next) => {
+  const { email, password } = req.body;
+  if (typeof email !== 'string' || !email.trim() || typeof password !== 'string' || !password)
+    return next(new ValidationError('email and password are required'));
+
   passport.authenticate('local', (err, user, info) => {
     if (err) return next(err);
     if (!user) return next(new UnauthorizedError(info?.message ?? 'Login failed'));

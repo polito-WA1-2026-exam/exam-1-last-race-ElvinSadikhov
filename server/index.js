@@ -5,8 +5,9 @@ import session from 'express-session';
 import passport from 'passport';
 import { Strategy as LocalStrategy } from 'passport-local';
 
-import { getUserByCredentials, getUserById } from './dao/usersDao.js';
-import { AppError } from './errors/AppError.js';
+import { verifyCredentials, getUserById } from './services/authService.js';
+import { AppError, UnauthorizedError, NotFoundError } from './errors/AppError.js';
+import { networkService } from './services/NetworkService.js';
 
 // ─── Passport ─────────────────────────────────────────────────────────────────
 
@@ -14,7 +15,7 @@ passport.use(new LocalStrategy(
   { usernameField: 'email' },
   async (email, password, done) => {
     try {
-      const user = await getUserByCredentials(email, password);
+      const user = await verifyCredentials(email, password);
       done(null, user);
     } catch (err) {
       done(null, false, { message: err.message });
@@ -45,7 +46,7 @@ app.use(cors({
   credentials: true,
 }));
 app.use(session({
-  secret: 'lastrace-secret-key',
+  secret: 'lastrace-secret-key', // in production: read from env var
   resave: false,
   saveUninitialized: false,
   cookie: { httpOnly: true, sameSite: 'lax' },
@@ -54,17 +55,23 @@ app.use(passport.authenticate('session'));
 
 // ─── Middleware helpers ────────────────────────────────────────────────────────
 
-export function isLoggedIn(req, res, next) {
+export function isLoggedIn(req, _res, next) {
   if (req.isAuthenticated()) return next();
-  res.status(401).json({ error: 'Not authenticated' });
+  next(new UnauthorizedError());
 }
+
+// ─── Network routes ───────────────────────────────────────────────────────────
+
+app.get('/api/network', (_req, res) => {
+  res.json(networkService.getNetworkData());
+});
 
 // ─── Auth routes ──────────────────────────────────────────────────────────────
 
 app.post('/api/sessions', (req, res, next) => {
   passport.authenticate('local', (err, user, info) => {
     if (err) return next(err);
-    if (!user) return res.status(401).json({ error: info?.message ?? 'Login failed' });
+    if (!user) return next(new UnauthorizedError(info?.message ?? 'Login failed'));
     req.login(user, err => {
       if (err) return next(err);
       res.json(user);
@@ -72,33 +79,38 @@ app.post('/api/sessions', (req, res, next) => {
   })(req, res, next);
 });
 
-app.get('/api/sessions/current', (req, res) => {
+app.get('/api/sessions/current', (req, res, next) => {
   if (req.isAuthenticated()) return res.json(req.user);
-  res.status(401).json({ error: 'Not authenticated' });
+  next(new UnauthorizedError());
 });
 
-app.delete('/api/sessions/current', (req, res, next) => {
+app.delete('/api/sessions/current', isLoggedIn, (req, res, next) => {
   req.logout(err => {
     if (err) return next(err);
     res.status(204).end();
   });
 });
 
-// ─── Error middleware ──────────────────────────────────────────────────────────
+// ─── 404 + Error middleware ────────────────────────────────────────────────────
+
+app.use((_req, _res, next) => next(new NotFoundError('Route not found')));
 
 // eslint-disable-next-line no-unused-vars
 app.use((err, _req, res, _next) => {
-  const status = err instanceof AppError ? err.status : 500;
-  const body = { error: err.message };
-  if (err.errors) body.errors = err.errors;
+  const status = err instanceof AppError ? err.status : (err.status ?? 500);
+  const body = err.errors
+    ? { error: err.message, errors: err.errors }
+    : { error: err.message };
   if (status === 500) console.error(err);
   res.status(status).json(body);
 });
 
-process.on('unhandledRejection', err => console.error('Unhandled rejection:', err));
+process.on('unhandledRejection', err => { console.error('Unhandled rejection:', err); process.exit(1); });
 
 // ─── Start ────────────────────────────────────────────────────────────────────
 
-app.listen(PORT, () => console.log(`Server running at http://localhost:${PORT}`));
+networkService.init()
+  .then(() => app.listen(PORT, () => console.log(`Server running at http://localhost:${PORT}`)))
+  .catch(err => { console.error('Failed to init NetworkService:', err); process.exit(1); });
 
 export default app;

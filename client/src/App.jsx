@@ -6,6 +6,7 @@ import Navbar from './components/Navbar.jsx';
 import ProtectedRoute from './components/ProtectedRoute.jsx';
 import LoginPage from './pages/LoginPage.jsx';
 import SetupPage from './pages/SetupPage.jsx';
+import PlanningPage from './pages/PlanningPage.jsx';
 
 function AppInner() {
   const { user, setUser } = useUser();
@@ -22,6 +23,7 @@ function AppInner() {
       <Routes>
         <Route path="/" element={user ? <Navigate to="/setup" replace /> : <LoginPage />} />
         <Route path="/setup" element={<ProtectedRoute><SetupPage /></ProtectedRoute>} />
+        <Route path="/game/:id/planning" element={<ProtectedRoute><PlanningPage /></ProtectedRoute>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       <div className="lr-stripe" />

@@ -10,7 +10,7 @@
   --line-red:    #E63946;
   --line-blue:   #457B9D;
   --line-green:  #2D6A4F;
-  --line-yellow: #E9C46A;
+  --line-yellow: #C9941A;
   --nav-bg:      #1A1614;
   --nav-text:    #F5F0E8;
 }
@@ -238,6 +238,85 @@ body {
   font-size: 0.85rem;
   color: var(--text-muted);
   margin-top: 0.1rem;
+}
+
+/* ── Setup page ─────────────────────────────────────────────────── */
+
+.lr-setup-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-bottom: 1.25rem;
+  gap: 1.5rem;
+}
+
+.lr-setup-title {
+  font-size: 1.6rem;
+  font-weight: 800;
+  margin: 0 0 0.25rem;
+}
+
+.lr-setup-sub {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  margin: 0;
+}
+
+.lr-setup-action {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.lr-btn-start {
+  width: auto;
+  white-space: nowrap;
+  padding: 0.65rem 1.5rem;
+}
+
+.lr-line-badges {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+@media (max-width: 720px) {
+  .lr-login-page {
+    grid-template-columns: 1fr;
+    margin: 2rem auto;
+  }
+  .lr-setup-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .lr-setup-action {
+    align-items: flex-start;
+    width: 100%;
+  }
+  .lr-btn-start {
+    width: 100%;
+  }
+}
+
+.lr-line-badge {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  padding: 0.25rem 0.75rem;
+  border-radius: 20px;
+}
+
+/* ── Metro map ──────────────────────────────────────────────────── */
+
+.lr-map {
+  width: 100%;
+  height: auto;
+  display: block;
+  border: 1px solid var(--border);
+  border-radius: 4px;
 }
 
 /* ── Four-colour stripe ─────────────────────────────────────────── */

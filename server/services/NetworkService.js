@@ -114,13 +114,11 @@ class NetworkService {
     const byLine = new Map(this._lines.map(l => [l.id, { ...l, stations: [] }]));
     for (const row of this._lineStations) {
       byLine.get(row.line_id)?.stations.push({
-        id: row.station_id,
+        id:   row.station_id,
         name: row.station_name,
-        position: row.position,
+        lat:  row.lat,
+        lon:  row.lon,
       });
-    }
-    for (const line of byLine.values()) {
-      line.stations.sort((a, b) => a.position - b.position);
     }
     return { lines: [...byLine.values()], stations: this._stations };
   }

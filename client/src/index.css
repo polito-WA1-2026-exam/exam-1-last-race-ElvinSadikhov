@@ -149,6 +149,8 @@ body {
   margin: 0 0 0.75rem;
 }
 
+.lr-error--spaced { margin-bottom: 1rem; }
+
 .lr-btn-primary {
   display: block;
   width: 100%;

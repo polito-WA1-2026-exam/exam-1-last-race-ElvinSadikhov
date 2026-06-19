@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useRef, useMemo } from 'react';
 import { useLocation, useNavigate, Navigate } from 'react-router-dom';
 import PropTypes from 'prop-types';
 import MetroMap from '../components/MetroMap.jsx';
@@ -7,7 +7,7 @@ import { submitRoute } from '../api.js';
 
 function buildSegments(lines) {
   const seen = new Set();
-  const segs = [];
+  const segments = [];
   for (const line of lines) {
     for (let i = 0; i + 1 < line.stations.length; i++) {
       const a = line.stations[i];
@@ -15,19 +15,19 @@ function buildSegments(lines) {
       const key = `${Math.min(a.id, b.id)}-${Math.max(a.id, b.id)}`;
       if (!seen.has(key)) {
         seen.add(key);
-        segs.push({ from: a.id, to: b.id, fromName: a.name, toName: b.name, key });
+        segments.push({ from: a.id, to: b.id, fromName: a.name, toName: b.name, key });
       }
     }
   }
-  return segs;
+  return segments;
 }
 
 function SegmentItem({ seg, isSelected, isUnreachable, onAdd, disabled }) {
   const cls = [
     'lr-segment-item',
-    isSelected    ? 'lr-segment-item--selected'    : '',
-    isUnreachable ? 'lr-segment-item--unreachable' : '',
-  ].join(' ').trim();
+    isSelected    && 'lr-segment-item--selected',
+    isUnreachable && 'lr-segment-item--unreachable',
+  ].filter(Boolean).join(' ');
 
   return (
     <button
@@ -41,69 +41,55 @@ function SegmentItem({ seg, isSelected, isUnreachable, onAdd, disabled }) {
 }
 
 SegmentItem.propTypes = {
-  seg:          PropTypes.shape({ from: PropTypes.number, to: PropTypes.number, fromName: PropTypes.string, toName: PropTypes.string, key: PropTypes.string }).isRequired,
-  isSelected:   PropTypes.bool.isRequired,
+  seg:           PropTypes.shape({ from: PropTypes.number, to: PropTypes.number, fromName: PropTypes.string, toName: PropTypes.string, key: PropTypes.string }).isRequired,
+  isSelected:    PropTypes.bool.isRequired,
   isUnreachable: PropTypes.bool.isRequired,
-  onAdd:        PropTypes.func.isRequired,
-  disabled:     PropTypes.bool.isRequired,
+  onAdd:         PropTypes.func.isRequired,
+  disabled:      PropTypes.bool.isRequired,
 };
 
-export default function PlanningPage() {
-  const location = useLocation();
-  const navigate  = useNavigate();
-  const { game, network } = location.state ?? {};
+function PlanningView({ game, network }) {
+  const navigate = useNavigate();
 
-  const [route, setRoute]           = useState([]);
-  const [submitting, setSubmitting] = useState(false);
-  const [submitted, setSubmitted]   = useState(false);
-  const [error, setError]           = useState('');
+  const [route, setRoute]   = useState([]);
+  const [status, setStatus] = useState('idle'); // 'idle' | 'submitting' | 'done'
+  const [error, setError]   = useState('');
+  const inFlightRef         = useRef(false);
 
-  const segments = useMemo(
-    () => (network?.lines ? buildSegments(network.lines) : []),
-    [network],
-  );
+  const segments = useMemo(() => buildSegments(network.lines), [network]);
 
   const currentTail = route.length === 0
-    ? game?.startStation?.id
+    ? game.startStation.id
     : route[route.length - 1].to;
 
   const selectedKeys = useMemo(() => new Set(route.map(s => s.key)), [route]);
 
-  const handleSubmit = useCallback(async () => {
-    if (!game || submitting || submitted) return;
-    setSubmitting(true);
-    setSubmitted(true);
-    if (route.length === 0) {
-      navigate(`/game/${game.gameId}/execution`, {
-        state: { game, result: { valid: false, steps: [], finalScore: 0 } },
-      });
-      return;
-    }
+  const handleSubmit = async () => {
+    if (inFlightRef.current || status !== 'idle') return;
+    inFlightRef.current = true;
+    setStatus('submitting');
     try {
-      const result = await submitRoute(
-        game.gameId,
-        route.map(s => ({ from: s.from, to: s.to })),
-      );
+      const result = route.length === 0
+        ? { valid: false, steps: [], finalScore: 0 }
+        : await submitRoute(game.gameId, route.map(s => ({ from: s.from, to: s.to })));
       navigate(`/game/${game.gameId}/execution`, { state: { game, result } });
     } catch {
+      inFlightRef.current = false;
+      setStatus('idle');
       setError('Could not submit your route. Please try again.');
-      setSubmitting(false);
-      setSubmitted(false);
     }
-  }, [game, submitting, submitted, route, navigate]);
+  };
 
   const timeLeft = useCountdown(90, handleSubmit);
 
-  if (!game || !network) return <Navigate to="/setup" replace />;
-
-  const minutes   = Math.floor(timeLeft / 60);
-  const seconds   = String(timeLeft % 60).padStart(2, '0');
-  const timerCls  = timeLeft <= 10 ? 'lr-timer--danger'
-                  : timeLeft <= 30 ? 'lr-timer--warning'
-                  : '';
+  const minutes  = Math.floor(timeLeft / 60);
+  const seconds  = String(timeLeft % 60).padStart(2, '0');
+  const timerCls = timeLeft <= 10 ? 'lr-timer--danger'
+                 : timeLeft <= 30 ? 'lr-timer--warning'
+                 : '';
 
   const addSegment = (seg) => {
-    if (submitting || submitted || selectedKeys.has(seg.key)) return;
+    if (status !== 'idle' || selectedKeys.has(seg.key)) return;
     if (seg.from === currentTail) {
       setRoute(r => [...r, seg]);
     } else if (seg.to === currentTail) {
@@ -112,7 +98,7 @@ export default function PlanningPage() {
   };
 
   const removeLast = () => {
-    if (submitting || submitted) return;
+    if (status !== 'idle') return;
     setRoute(r => r.slice(0, -1));
   };
 
@@ -131,7 +117,7 @@ export default function PlanningPage() {
         <div className={`lr-timer ${timerCls}`}>{minutes}:{seconds}</div>
       </div>
 
-      {error && <p className="lr-error" style={{ marginBottom: '1rem' }}>{error}</p>}
+      {error && <p className="lr-error lr-error--spaced">{error}</p>}
 
       <div className="lr-planning-body">
         <section>
@@ -144,7 +130,7 @@ export default function PlanningPage() {
                 isSelected={selectedKeys.has(seg.key)}
                 isUnreachable={route.length > 0 && !selectedKeys.has(seg.key) && seg.from !== currentTail && seg.to !== currentTail}
                 onAdd={addSegment}
-                disabled={submitted}
+                disabled={status !== 'idle'}
               />
             ))}
           </div>
@@ -157,14 +143,14 @@ export default function PlanningPage() {
               <span className="lr-route-count">{route.length} segment{route.length !== 1 ? 's' : ''}</span>
             </p>
             <ol className="lr-route-chain">
-              {chain.map(name => (
-                <li key={name} className={`lr-route-chain__station${name === game.startStation.name ? ' lr-route-chain__start' : ''}`}>
+              {chain.map((name, i) => (
+                <li key={i} className={`lr-route-chain__station${i === 0 ? ' lr-route-chain__start' : ''}`}>
                   {name}
                 </li>
               ))}
             </ol>
             {route.length > 0 && (
-              <button className="lr-btn-remove-last" onClick={removeLast} disabled={submitting || submitted}>
+              <button className="lr-btn-remove-last" onClick={removeLast} disabled={status !== 'idle'}>
                 ← Remove last
               </button>
             )}
@@ -172,11 +158,24 @@ export default function PlanningPage() {
 
           <MetroMap mode="planning" lines={[]} stations={network.stations} interchanges={new Set()} />
 
-          <button className="lr-btn-primary" onClick={handleSubmit} disabled={submitting}>
-            {submitting ? 'Submitting…' : 'Submit Route'}
+          {/* intentional: disabled check omits timeLeft === 0 (Bug #2, fixed in fix/planning-timer) */}
+          <button className="lr-btn-primary" onClick={handleSubmit} disabled={status === 'submitting'}>
+            {status === 'submitting' ? 'Submitting…' : 'Submit Route'}
           </button>
         </section>
       </div>
     </main>
   );
+}
+
+PlanningView.propTypes = {
+  game:    PropTypes.shape({ gameId: PropTypes.number, startStation: PropTypes.shape({ id: PropTypes.number, name: PropTypes.string }), destStation: PropTypes.shape({ id: PropTypes.number, name: PropTypes.string }) }).isRequired,
+  network: PropTypes.shape({ lines: PropTypes.array, stations: PropTypes.array }).isRequired,
+};
+
+export default function PlanningPage() {
+  const { state } = useLocation();
+  const { game, network } = state ?? {};
+  if (!game || !network) return <Navigate to="/setup" replace />;
+  return <PlanningView game={game} network={network} />;
 }

@@ -4,21 +4,26 @@ import MetroMap from '../components/MetroMap.jsx';
 import { getNetwork, startGame } from '../api.js';
 
 function deriveInterchanges(lines) {
-  const count = {};
+  const seen = new Set();
+  const interchanges = new Set();
   for (const line of lines)
     for (const s of line.stations)
-      count[s.name] = (count[s.name] || 0) + 1;
-  return new Set(Object.keys(count).filter(n => count[n] >= 2));
+      seen.has(s.name) ? interchanges.add(s.name) : seen.add(s.name);
+  return interchanges;
 }
 
 export default function SetupPage() {
-  const [network, setNetwork] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError]     = useState('');
+  const [network, setNetwork]           = useState(null);
+  const [networkLoading, setNetworkLoading] = useState(true);
+  const [loading, setLoading]           = useState(false);
+  const [error, setError]               = useState('');
   const navigate = useNavigate();
 
   useEffect(() => {
-    getNetwork().then(setNetwork).catch(() => setError('Could not load the network. Refresh to try again.'));
+    getNetwork()
+      .then(setNetwork)
+      .catch(() => setError('Could not load the network. Refresh to try again.'))
+      .finally(() => setNetworkLoading(false));
   }, []);
 
   const handleStart = async () => {
@@ -48,7 +53,7 @@ export default function SetupPage() {
         </div>
         <div className="lr-setup-action">
           {error && <p className="lr-error">{error}</p>}
-          <button className="lr-btn-primary lr-btn-start" onClick={handleStart} disabled={loading}>
+          <button className="lr-btn-primary lr-btn-start" onClick={handleStart} disabled={loading || networkLoading}>
             {loading ? 'Starting…' : "I'm ready — Start Planning"}
           </button>
         </div>

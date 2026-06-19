@@ -16,5 +16,6 @@ async function request(path, { method = 'GET', body } = {}) {
 export const getMe      = ()                => request('/sessions/current');
 export const login      = (email, password) => request('/sessions', { method: 'POST', body: { email, password } });
 export const logout     = ()                => request('/sessions/current', { method: 'DELETE' });
-export const getNetwork = ()                => request('/network');
-export const startGame  = ()                => request('/games', { method: 'POST' });
+export const getNetwork  = ()                      => request('/network');
+export const startGame   = ()                      => request('/games', { method: 'POST' });
+export const submitRoute = (gameId, segments)      => request(`/games/${gameId}/route`, { method: 'POST', body: { segments } });

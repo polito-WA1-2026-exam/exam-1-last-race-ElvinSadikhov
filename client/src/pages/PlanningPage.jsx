@@ -22,18 +22,17 @@ function buildSegments(lines) {
   return segments;
 }
 
-function SegmentItem({ seg, isSelected, isUnreachable, onAdd, disabled }) {
+function SegmentItem({ seg, isSelected, onAdd, disabled }) {
   const cls = [
     'lr-segment-item',
-    isSelected    && 'lr-segment-item--selected',
-    isUnreachable && 'lr-segment-item--unreachable',
+    isSelected && 'lr-segment-item--selected',
   ].filter(Boolean).join(' ');
 
   return (
     <button
       className={cls}
       onClick={() => onAdd(seg)}
-      disabled={isSelected || isUnreachable || disabled}
+      disabled={isSelected || disabled}
     >
       {seg.fromName} ↔ {seg.toName}
     </button>
@@ -41,11 +40,10 @@ function SegmentItem({ seg, isSelected, isUnreachable, onAdd, disabled }) {
 }
 
 SegmentItem.propTypes = {
-  seg:           PropTypes.shape({ from: PropTypes.number, to: PropTypes.number, fromName: PropTypes.string, toName: PropTypes.string, key: PropTypes.string }).isRequired,
-  isSelected:    PropTypes.bool.isRequired,
-  isUnreachable: PropTypes.bool.isRequired,
-  onAdd:         PropTypes.func.isRequired,
-  disabled:      PropTypes.bool.isRequired,
+  seg:        PropTypes.shape({ from: PropTypes.number, to: PropTypes.number, fromName: PropTypes.string, toName: PropTypes.string, key: PropTypes.string }).isRequired,
+  isSelected: PropTypes.bool.isRequired,
+  onAdd:      PropTypes.func.isRequired,
+  disabled:   PropTypes.bool.isRequired,
 };
 
 function PlanningView({ game, network }) {
@@ -56,28 +54,32 @@ function PlanningView({ game, network }) {
   const [error, setError]   = useState('');
   const inFlightRef         = useRef(false);
 
-  const segments = useMemo(() => buildSegments(network.lines), [network]);
+  const segments       = useMemo(() => buildSegments(network.lines), [network]);
+  const selectedKeys   = useMemo(() => new Set(route.map(s => s.key)), [route]);
+  const emptySet       = useMemo(() => new Set(), []);
 
   const currentTail = route.length === 0
     ? game.startStation.id
     : route[route.length - 1].to;
-
-  const selectedKeys = useMemo(() => new Set(route.map(s => s.key)), [route]);
 
   const handleSubmit = async () => {
     if (inFlightRef.current || status !== 'idle') return;
     inFlightRef.current = true;
     setStatus('submitting');
     try {
-      const result = route.length === 0
-        ? { valid: false, steps: [], finalScore: 0 }
-        : await submitRoute(game.gameId, route.map(s => ({ from: s.from, to: s.to })));
+      const result = await submitRoute(game.gameId, route.map(s => ({ from: s.from, to: s.to })));
+      // inFlightRef intentionally not reset — component unmounts on navigate
       navigate(`/game/${game.gameId}/execution`, { state: { game, result } });
-    } catch {
+    } catch (err) {
       inFlightRef.current = false;
       setStatus('idle');
-      setError('Could not submit your route. Please try again.');
+      setError(err.message ?? 'Could not submit your route. Please try again.');
     }
+  };
+
+  const removeLast = () => {
+    if (status !== 'idle') return;
+    setRoute(r => r.slice(0, -1));
   };
 
   const timeLeft = useCountdown(90, handleSubmit);
@@ -90,19 +92,14 @@ function PlanningView({ game, network }) {
 
   const addSegment = (seg) => {
     if (status !== 'idle' || selectedKeys.has(seg.key)) return;
-    if (seg.from === currentTail) {
-      setRoute(r => [...r, seg]);
-    } else if (seg.to === currentTail) {
+    // Reverse only when the "to" end matches the tail — avoids backwards display for naturally-connected
+    // segments. Disconnected segments are added as-is; server validates the full route after submission.
+    if (seg.to === currentTail) {
       setRoute(r => [...r, { from: seg.to, to: seg.from, fromName: seg.toName, toName: seg.fromName, key: seg.key }]);
+    } else {
+      setRoute(r => [...r, seg]);
     }
   };
-
-  const removeLast = () => {
-    if (status !== 'idle') return;
-    setRoute(r => r.slice(0, -1));
-  };
-
-  const chain = [game.startStation.name, ...route.map(s => s.toName)];
 
   return (
     <main className="lr-page">
@@ -128,7 +125,6 @@ function PlanningView({ game, network }) {
                 key={seg.key}
                 seg={seg}
                 isSelected={selectedKeys.has(seg.key)}
-                isUnreachable={route.length > 0 && !selectedKeys.has(seg.key) && seg.from !== currentTail && seg.to !== currentTail}
                 onAdd={addSegment}
                 disabled={status !== 'idle'}
               />
@@ -143,11 +139,14 @@ function PlanningView({ game, network }) {
               <span className="lr-route-count">{route.length} segment{route.length !== 1 ? 's' : ''}</span>
             </p>
             <ol className="lr-route-chain">
-              {chain.map((name, i) => (
-                <li key={i} className={`lr-route-chain__station${i === 0 ? ' lr-route-chain__start' : ''}`}>
-                  {name}
-                </li>
-              ))}
+              {route.length === 0
+                ? <li className="lr-route-chain__empty">No segments selected yet</li>
+                : route.map(seg => (
+                    <li key={seg.key} className="lr-route-chain__station">
+                      {seg.fromName} → {seg.toName}
+                    </li>
+                  ))
+              }
             </ol>
             {route.length > 0 && (
               <button className="lr-btn-remove-last" onClick={removeLast} disabled={status !== 'idle'}>
@@ -156,7 +155,8 @@ function PlanningView({ game, network }) {
             )}
           </div>
 
-          <MetroMap mode="planning" lines={[]} stations={network.stations} interchanges={new Set()} />
+          {/* lines={[]} intentional — planning mode shows station dots only, not line tracks */}
+          <MetroMap mode="planning" lines={[]} stations={network.stations} interchanges={emptySet} />
 
           {/* intentional: disabled check omits timeLeft === 0 (Bug #2, fixed in fix/planning-timer) */}
           <button className="lr-btn-primary" onClick={handleSubmit} disabled={status === 'submitting'}>

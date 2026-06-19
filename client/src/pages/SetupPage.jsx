@@ -26,7 +26,7 @@ export default function SetupPage() {
     setError('');
     try {
       const game = await startGame();
-      navigate(`/game/${game.gameId}/planning`, { state: { game } });
+      navigate(`/game/${game.gameId}/planning`, { state: { game, network } });
     } catch {
       setError('Could not start game. Please try again.');
       setLoading(false);

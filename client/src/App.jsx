@@ -8,6 +8,7 @@ import LoginPage from './pages/LoginPage.jsx';
 import SetupPage from './pages/SetupPage.jsx';
 import PlanningPage from './pages/PlanningPage.jsx';
 import ExecutionPage from './pages/ExecutionPage.jsx';
+import RankingPage from './pages/RankingPage.jsx';
 
 function AppInner() {
   const { user, setUser } = useUser();
@@ -26,6 +27,7 @@ function AppInner() {
         <Route path="/setup" element={<ProtectedRoute><SetupPage /></ProtectedRoute>} />
         <Route path="/game/:id/planning"   element={<ProtectedRoute><PlanningPage /></ProtectedRoute>} />
         <Route path="/game/:id/execution"  element={<ProtectedRoute><ExecutionPage /></ProtectedRoute>} />
+        <Route path="/ranking" element={<ProtectedRoute><RankingPage /></ProtectedRoute>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       <div className="lr-stripe" />

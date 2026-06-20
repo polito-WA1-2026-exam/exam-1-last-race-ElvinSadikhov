@@ -53,7 +53,7 @@ export function saveGameResult(gameId, score) {
 
 export function getRanking() {
   return all(
-    `SELECT u.id AS userId, u.name AS userName, MAX(g.score) AS bestScore
+    `SELECT u.name AS userName, MAX(g.score) AS bestScore
      FROM   games g
      JOIN   users u ON u.id = g.user_id
      WHERE  g.status = 'completed'

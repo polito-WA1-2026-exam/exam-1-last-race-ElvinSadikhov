@@ -115,7 +115,7 @@ app.post('/api/games', isLoggedIn, async (req, res) => {
 app.post('/api/games/:id/route',
   isLoggedIn,
   param('id').isInt({ min: 1 }).withMessage('Game ID must be a positive integer'),
-  body('segments').isArray({ min: 1 }).withMessage('segments must be a non-empty array'),
+  body('segments').isArray().withMessage('segments must be an array'),
   body('segments.*.from').isInt().withMessage('segment.from must be an integer'),
   body('segments.*.to').isInt().withMessage('segment.to must be an integer'),
   validate,

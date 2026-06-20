@@ -416,10 +416,16 @@ body {
   font-weight: 600;
 }
 
-.lr-segment-item--unreachable,
 .lr-segment-item:disabled {
   opacity: 0.35;
   cursor: not-allowed;
+}
+
+.lr-route-chain__empty {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  font-style: italic;
+  padding: 0.2rem 0 0.2rem 1rem;
 }
 
 .lr-route-chain {
@@ -435,20 +441,6 @@ body {
   color: var(--text-mid);
 }
 
-.lr-route-chain__start {
-  font-weight: 700;
-  color: var(--text);
-}
-
-.lr-route-count {
-  font-size: 0.8rem;
-  font-weight: 400;
-  color: var(--text-muted);
-  text-transform: none;
-  letter-spacing: 0;
-  margin-left: 0.5rem;
-}
-
 .lr-btn-remove-last {
   background: transparent;
   border: none;
@@ -461,6 +453,16 @@ body {
 
 .lr-btn-remove-last:hover:not(:disabled) { color: var(--text); }
 .lr-btn-remove-last:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.lr-route-count {
+  font-size: 0.8rem;
+  font-weight: 400;
+  color: var(--text-muted);
+  text-transform: none;
+  letter-spacing: 0;
+  margin-left: 0.5rem;
+}
+
 
 @media (max-width: 720px) {
   .lr-planning-body   { grid-template-columns: 1fr; }

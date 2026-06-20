@@ -19,3 +19,4 @@ export const logout     = ()                => request('/sessions/current', { me
 export const getNetwork  = ()                      => request('/network');
 export const startGame   = ()                      => request('/games', { method: 'POST' });
 export const submitRoute = (gameId, segments)      => request(`/games/${gameId}/route`, { method: 'POST', body: { segments } });
+export const getRanking  = ()                      => request('/ranking');

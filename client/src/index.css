@@ -471,6 +471,117 @@ body {
   .lr-planning-header { flex-wrap: wrap; }
 }
 
+/* ── Execution page ─────────────────────────────────────────────── */
+
+.lr-execution-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: var(--nav-bg);
+  color: var(--nav-text);
+  border-radius: 4px;
+  padding: 1rem 1.5rem;
+  margin-bottom: 1.5rem;
+  gap: 1.5rem;
+}
+
+.lr-execution-progress {
+  font-size: 1rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: rgba(245, 240, 232, 0.6);
+  flex-shrink: 0;
+}
+
+.lr-steps-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+}
+
+.lr-step-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1rem 1.25rem;
+}
+
+.lr-step-header {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  margin-bottom: 0.4rem;
+}
+
+.lr-step-num {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.lr-step-segment {
+  font-weight: 700;
+  font-size: 1rem;
+}
+
+.lr-step-event {
+  font-size: 0.9rem;
+  color: var(--text-mid);
+  margin: 0 0 0.3rem;
+}
+
+.lr-step-coins {
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.lr-step-coins--gain { color: var(--line-green); }
+.lr-step-coins--loss { color: var(--line-red); }
+
+.lr-execution-invalid {
+  text-align: center;
+  margin-top: 2rem;
+}
+
+.lr-execution-invalid-title {
+  font-size: 1.6rem;
+  font-weight: 800;
+  color: var(--line-red);
+  margin: 0 0 0.5rem;
+}
+
+.lr-execution-score-line {
+  font-size: 1rem;
+  color: var(--text-mid);
+  margin: 0.75rem 0 1.25rem;
+}
+
+.lr-score-card {
+  text-align: center;
+  margin-top: 1rem;
+}
+
+.lr-score-value {
+  font-size: 4rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  margin: 0.5rem 0 0;
+}
+
+.lr-score-label {
+  font-size: 0.9rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin: 0 0 1.5rem;
+}
+
 /* ── Four-colour stripe ─────────────────────────────────────────── */
 
 .lr-stripe {

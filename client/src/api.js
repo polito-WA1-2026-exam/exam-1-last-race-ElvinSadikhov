@@ -9,7 +9,7 @@ async function request(path, { method = 'GET', body } = {}) {
   const res = await fetch(API + path, opts);
   if (res.status === 204) return null;
   const data = await res.json();
-  if (!res.ok) throw data;
+  if (!res.ok) throw new Error(data.error ?? 'Request failed');
   return data;
 }
 

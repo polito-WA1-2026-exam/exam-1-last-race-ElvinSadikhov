@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Container, Row, Col, Button, Alert } from 'react-bootstrap';
 import MetroMap from '../components/MetroMap.jsx';
 import { getNetwork, startGame } from '../api.js';
 
@@ -13,10 +14,10 @@ function deriveInterchanges(lines) {
 }
 
 export default function SetupPage() {
-  const [network, setNetwork]           = useState(null);
+  const [network, setNetwork]               = useState(null);
   const [networkLoading, setNetworkLoading] = useState(true);
-  const [loading, setLoading]           = useState(false);
-  const [error, setError]               = useState('');
+  const [loading, setLoading]               = useState(false);
+  const [error, setError]                   = useState('');
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -31,6 +32,7 @@ export default function SetupPage() {
     setError('');
     try {
       const game = await startGame();
+      setLoading(false);
       navigate(`/game/${game.gameId}/planning`, { state: { game, network } });
     } catch {
       setError('Could not start game. Please try again.');
@@ -43,32 +45,37 @@ export default function SetupPage() {
   const interchanges = lines.length ? deriveInterchanges(lines) : new Set();
 
   return (
-    <main className="lr-page">
-      <div className="lr-setup-header">
-        <div>
-          <h1 className="lr-setup-title">Study the Network</h1>
-          <p className="lr-setup-sub">
+    <Container style={{ maxWidth: 1100 }} className="py-4 px-4 pb-5">
+      <Row className="align-items-end mb-3">
+        <Col>
+          <h1 className="fs-4 fw-bold mb-1">Study the Network</h1>
+          <p className="text-muted small mb-0">
             Memorise the lines and connections — they will be hidden during planning.
           </p>
-        </div>
-        <div className="lr-setup-action">
-          {error && <p className="lr-error">{error}</p>}
-          <button className="lr-btn-primary lr-btn-start" onClick={handleStart} disabled={loading || networkLoading}>
+        </Col>
+        <Col xs="auto" className="d-flex flex-column align-items-end gap-2">
+          {error && (
+            <Alert variant="danger" className="py-2 px-3 small mb-0" dismissible onClose={() => setError('')}>
+              {error}
+            </Alert>
+          )}
+          <Button variant="dark" className="text-uppercase fw-bold text-nowrap px-4"
+                  onClick={handleStart} disabled={loading || networkLoading}>
             {loading ? 'Starting…' : "I'm ready — Start Planning"}
-          </button>
-        </div>
-      </div>
+          </Button>
+        </Col>
+      </Row>
 
       <MetroMap mode="full" lines={lines} stations={stations} interchanges={interchanges} />
 
-      <div className="lr-line-badges">
+      <div className="d-flex gap-2 mt-3 flex-wrap">
         {lines.map(line => (
-          <span key={line.name} className="lr-line-badge"
-                style={{ background: line.color, color: 'var(--nav-text)' }}>
+          <span key={line.name} className="rounded-pill text-uppercase small fw-bold px-3 py-1 text-white"
+                style={{ background: line.color }}>
             {line.name}
           </span>
         ))}
       </div>
-    </main>
+    </Container>
   );
 }

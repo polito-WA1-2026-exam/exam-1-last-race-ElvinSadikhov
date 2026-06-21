@@ -1,3 +1,4 @@
+import PropTypes from 'prop-types';
 import { Navigate } from 'react-router-dom';
 import { useUser } from '../context/UserContext.jsx';
 
@@ -7,3 +8,5 @@ export default function ProtectedRoute({ children }) {
   if (!user) return <Navigate to="/" replace />;
   return children;
 }
+
+ProtectedRoute.propTypes = { children: PropTypes.node.isRequired };

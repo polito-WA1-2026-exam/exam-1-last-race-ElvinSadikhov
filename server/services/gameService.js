@@ -3,14 +3,6 @@ import { getAllEvents } from '../dao/eventsDao.js';
 import { createGame, getGameByIdAndUser, saveGameResult, getRanking as getRankingDao } from '../dao/gamesDao.js';
 import { NotFoundError, ConflictError } from '../errors/AppError.js';
 
-// ─── Route validation ─────────────────────────────────────────────────────────
-
-/**
- * @param {{ from: number, to: number }[]} segments
- * @param {number} startId
- * @param {number} destId
- * @returns {{ valid: boolean, reason?: string }}
- */
 function validateRoute(segments, startId, destId) {
   if (!segments || segments.length === 0)
     return { valid: false, reason: 'Route is empty' };
@@ -21,7 +13,6 @@ function validateRoute(segments, startId, destId) {
   if (segments[segments.length - 1].to !== destId)
     return { valid: false, reason: 'Route does not end at the assigned destination' };
 
-  // Check each segment: exists in network + no duplicates (undirected)
   const seen = new Set();
   for (const seg of segments) {
     const edgeLines = networkService.getEdgeLines(seg.from, seg.to);
@@ -34,7 +25,6 @@ function validateRoute(segments, startId, destId) {
     seen.add(key);
   }
 
-  // Check chain continuity + line change rules
   let activeLines = networkService.getEdgeLines(segments[0].from, segments[0].to);
 
   for (let i = 1; i < segments.length; i++) {
@@ -48,9 +38,8 @@ function validateRoute(segments, startId, destId) {
     const shared = new Set([...activeLines].filter(l => currLines.has(l)));
 
     if (shared.size > 0) {
-      activeLines = shared; // narrow to lines consistent with full path
+      activeLines = shared;
     } else {
-      // Line change — junction must be an interchange
       if (!networkService.isInterchange(curr.from))
         return { valid: false, reason: `Line change at station ${curr.from} is not allowed — not an interchange` };
       activeLines = currLines;
@@ -59,8 +48,6 @@ function validateRoute(segments, startId, destId) {
 
   return { valid: true };
 }
-
-// ─── Score calculation ────────────────────────────────────────────────────────
 
 function calculateScore(segments, events) {
   let coins = 20;
@@ -77,8 +64,6 @@ function calculateScore(segments, events) {
   });
   return { steps, finalScore: Math.max(0, coins) };
 }
-
-// ─── Public API ───────────────────────────────────────────────────────────────
 
 export async function startGame(userId) {
   const { startId, destId } = networkService.getRandomGamePair();

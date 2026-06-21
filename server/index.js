@@ -11,8 +11,6 @@ import { startGame, submitRoute, getRanking } from './services/gameService.js';
 import { AppError, UnauthorizedError, NotFoundError, ValidationError } from './errors/AppError.js';
 import { networkService } from './services/NetworkService.js';
 
-// ─── Passport ─────────────────────────────────────────────────────────────────
-
 passport.use(new LocalStrategy(
   { usernameField: 'email' },
   async (email, password, done) => {
@@ -36,8 +34,6 @@ passport.deserializeUser(async (id, done) => {
   }
 });
 
-// ─── App ──────────────────────────────────────────────────────────────────────
-
 const app = express();
 const PORT = 3001;
 
@@ -55,8 +51,6 @@ app.use(session({
 }));
 app.use(passport.authenticate('session'));
 
-// ─── Middleware helpers ────────────────────────────────────────────────────────
-
 export function isLoggedIn(req, _res, next) {
   if (req.isAuthenticated()) return next();
   next(new UnauthorizedError());
@@ -69,13 +63,9 @@ function validate(req, _res, next) {
   next();
 }
 
-// ─── Network routes ───────────────────────────────────────────────────────────
-
 app.get('/api/network', (_req, res) => {
   res.json(networkService.getNetworkData());
 });
-
-// ─── Auth routes ──────────────────────────────────────────────────────────────
 
 app.post('/api/sessions',
   body('email').isString().withMessage('email is required').bail().trim().notEmpty().withMessage('email is required'),
@@ -105,8 +95,6 @@ app.delete('/api/sessions/current', isLoggedIn, (req, res, next) => {
   });
 });
 
-// ─── Game routes ──────────────────────────────────────────────────────────────
-
 app.post('/api/games', isLoggedIn, async (req, res) => {
   const result = await startGame(req.user.id);
   res.status(201).json(result);
@@ -127,14 +115,10 @@ app.post('/api/games/:id/route',
   }
 );
 
-// ─── Ranking route ────────────────────────────────────────────────────────────
-
 app.get('/api/ranking', isLoggedIn, async (_req, res) => {
   const ranking = await getRanking();
   res.json(ranking);
 });
-
-// ─── 404 + Error middleware ────────────────────────────────────────────────────
 
 app.use((_req, _res, next) => next(new NotFoundError('Route not found')));
 
@@ -149,8 +133,6 @@ app.use((err, _req, res, _next) => {
 });
 
 process.on('unhandledRejection', err => { console.error('Unhandled rejection:', err); process.exit(1); });
-
-// ─── Start ────────────────────────────────────────────────────────────────────
 
 networkService.init()
   .then(() => app.listen(PORT, () => console.log(`Server running at http://localhost:${PORT}`)))

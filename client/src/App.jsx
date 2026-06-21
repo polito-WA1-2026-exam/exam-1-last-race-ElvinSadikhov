@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { UserProvider, useUser } from './context/UserContext.jsx';
 import { getMe } from './api.js';
-import Navbar from './components/Navbar.jsx';
+import LRNavbar from './components/Navbar.jsx';
 import ProtectedRoute from './components/ProtectedRoute.jsx';
 import LoginPage from './pages/LoginPage.jsx';
 import SetupPage from './pages/SetupPage.jsx';
@@ -15,13 +15,13 @@ function AppInner() {
 
   useEffect(() => {
     getMe().then(setUser).catch(() => setUser(null));
-  }, [setUser]);
+  }, []);
 
   if (user === undefined) return null;
 
   return (
     <>
-      <Navbar />
+      <LRNavbar />
       <Routes>
         <Route path="/" element={user ? <Navigate to="/setup" replace /> : <LoginPage />} />
         <Route path="/setup" element={<ProtectedRoute><SetupPage /></ProtectedRoute>} />
@@ -30,7 +30,6 @@ function AppInner() {
         <Route path="/ranking" element={<ProtectedRoute><RankingPage /></ProtectedRoute>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
-      <div className="lr-stripe" />
     </>
   );
 }

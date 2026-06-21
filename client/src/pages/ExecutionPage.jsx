@@ -1,83 +1,94 @@
 import { useState } from 'react';
 import { useLocation, useNavigate, Navigate } from 'react-router-dom';
 import PropTypes from 'prop-types';
+import { Container, Card, Button } from 'react-bootstrap';
 
 function ExecutionView({ game, result }) {
   const navigate = useNavigate();
   const { valid, steps, finalScore } = result;
   const safeSteps = steps ?? [];
 
-  // Bug #3: should be useState(0) — first step is auto-revealed on load
   const [revealed, setRevealed] = useState(1);
 
   const allRevealed = revealed >= safeSteps.length;
 
   const missionBadge = (
-    <div className="lr-mission">
+    <div className="d-flex align-items-center gap-2 flex-wrap">
       <span className="lr-mission-label">From</span>
-      <span className="lr-mission-station">{game.startStation.name}</span>
-      <span className="lr-mission-arrow">→</span>
+      <span className="fw-bold">{game.startStation.name}</span>
+      <span className="lr-mission-arrow mx-1">→</span>
       <span className="lr-mission-label">To</span>
-      <span className="lr-mission-station">{game.destStation.name}</span>
+      <span className="fw-bold">{game.destStation.name}</span>
     </div>
   );
 
   if (!valid || safeSteps.length === 0) {
     return (
-      <main className="lr-page">
-        <div className="lr-execution-header">{missionBadge}</div>
-        <div className="lr-card lr-execution-invalid">
-          <p className="lr-execution-invalid-title">Route Invalid</p>
-          <p className="lr-setup-sub">Your route did not connect the assigned stations correctly.</p>
-          <p className="lr-execution-score-line">Final score: <strong>0 coins</strong></p>
-          <button className="lr-btn-primary" onClick={() => navigate('/setup')}>
-            Play Again
-          </button>
-        </div>
-      </main>
+      <Container style={{ maxWidth: 1100 }} className="py-4 px-4 pb-5">
+        <div className="lr-planning-header mb-4">{missionBadge}</div>
+        <Card className="border text-center mt-4">
+          <Card.Body className="p-4">
+            <p className="fs-4 fw-bold mb-1" style={{ color: 'var(--line-red)' }}>Route Invalid</p>
+            <p className="text-muted">Your route did not connect the assigned stations correctly.</p>
+            <p className="text-muted mt-2 mb-4">Final score: <strong>0 coins</strong></p>
+            <Button variant="dark" className="text-uppercase fw-bold px-4" onClick={() => navigate('/setup')}>
+              Play Again
+            </Button>
+          </Card.Body>
+        </Card>
+      </Container>
     );
   }
 
   return (
-    <main className="lr-page">
-      <div className="lr-execution-header">
+    <Container style={{ maxWidth: 1100 }} className="py-4 px-4 pb-5">
+      <div className="lr-planning-header mb-4">
         {missionBadge}
-        <div className="lr-execution-progress">{revealed} / {safeSteps.length}</div>
+        <span className="fw-bold font-monospace" style={{ color: 'rgba(245,240,232,0.6)' }}>
+          {revealed} / {safeSteps.length}
+        </span>
       </div>
 
-      <div className="lr-steps-list">
+      <div className="d-flex flex-column gap-3 mb-4">
         {safeSteps.slice(0, revealed).map((step, i) => {
           const effect = step.event?.effect ?? 0;
           return (
-            <div key={i} className="lr-step-card">
-              <div className="lr-step-header">
-                <span className="lr-step-num">Step {i + 1}</span>
-                <span className="lr-step-segment">{step.fromName} → {step.toName}</span>
-              </div>
-              <p className="lr-step-event">{step.event?.description ?? 'No event'}</p>
-              <p className={`lr-step-coins${effect >= 0 ? ' lr-step-coins--gain' : ' lr-step-coins--loss'}`}>
-                {effect >= 0 ? '+' : ''}{effect} → {step.coinsAfter} coins remaining
-              </p>
-            </div>
+            <Card key={`${step.fromName}-${step.toName}-${i}`} className="border lr-step-card">
+              <Card.Body className="py-3 px-4">
+                <div className="d-flex align-items-baseline gap-3 mb-1">
+                  <span className="text-muted text-uppercase fw-bold flex-shrink-0" style={{ fontSize: '0.72rem' }}>
+                    Step {i + 1}
+                  </span>
+                  <span className="fw-bold">{step.fromName} → {step.toName}</span>
+                </div>
+                <p className="text-secondary small mb-1">{step.event?.description ?? 'No event'}</p>
+                <p className={`small fw-semibold mb-0${effect >= 0 ? ' text-success' : ' text-danger'}`}>
+                  {effect >= 0 ? '+' : ''}{effect} → {step.coinsAfter} coins remaining
+                </p>
+              </Card.Body>
+            </Card>
           );
         })}
       </div>
 
       {allRevealed ? (
-        <div className="lr-card lr-score-card">
-          <p className="lr-card-title">Journey complete</p>
-          <p className="lr-score-value">{finalScore}</p>
-          <p className="lr-score-label">coins</p>
-          <button className="lr-btn-primary" onClick={() => navigate('/setup')}>
-            Play Again
-          </button>
-        </div>
+        <Card className="border text-center mt-3">
+          <Card.Body className="p-4">
+            <p className="text-uppercase fw-bold text-muted small mb-2">Journey complete</p>
+            <p className={`lr-score-value${finalScore === 0 ? ' lr-score-value--zero' : ''}`}>{finalScore}</p>
+            <p className="text-muted text-uppercase fw-bold small mb-4" style={{ letterSpacing: '0.09em' }}>coins</p>
+            <Button variant="dark" className="text-uppercase fw-bold px-4" onClick={() => navigate('/setup')}>
+              Play Again
+            </Button>
+          </Card.Body>
+        </Card>
       ) : (
-        <button className="lr-btn-primary" onClick={() => setRevealed(r => r + 1)}>
+        <Button variant="dark" className="text-uppercase fw-bold px-4"
+                onClick={() => setRevealed(r => r + 1)}>
           Reveal next step →
-        </button>
+        </Button>
       )}
-    </main>
+    </Container>
   );
 }
 

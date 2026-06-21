@@ -9,4 +9,6 @@ const db = new sqlite3.Database(
   err => { if (err) throw err; }
 );
 
+db.run('PRAGMA foreign_keys = ON');
+
 export default db;

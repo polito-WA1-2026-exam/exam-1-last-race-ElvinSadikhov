@@ -1,4 +1,4 @@
-const SVG_W = 860, SVG_H = 520, PAD = 60;
+export const SVG_W = 860, SVG_H = 520, PAD = 60;
 
 export function project(lat, lon, bounds) {
   return {

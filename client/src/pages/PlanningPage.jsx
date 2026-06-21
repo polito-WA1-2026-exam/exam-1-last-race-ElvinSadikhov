@@ -1,6 +1,7 @@
-import { useState, useRef, useMemo } from 'react';
+import { useState, useRef, useMemo, useEffect } from 'react';
 import { useLocation, useNavigate, Navigate } from 'react-router-dom';
 import PropTypes from 'prop-types';
+import { Container, Row, Col, Card, ListGroup, Button, Alert, Modal } from 'react-bootstrap';
 import MetroMap from '../components/MetroMap.jsx';
 import useCountdown from '../hooks/useCountdown.js';
 import { submitRoute } from '../api.js';
@@ -22,56 +23,32 @@ function buildSegments(lines) {
   return segments;
 }
 
-function SegmentItem({ seg, isSelected, onAdd, disabled }) {
-  const cls = [
-    'lr-segment-item',
-    isSelected && 'lr-segment-item--selected',
-  ].filter(Boolean).join(' ');
-
-  return (
-    <button
-      className={cls}
-      onClick={() => onAdd(seg)}
-      disabled={isSelected || disabled}
-    >
-      {seg.fromName} ↔ {seg.toName}
-    </button>
-  );
-}
-
-SegmentItem.propTypes = {
-  seg:        PropTypes.shape({ from: PropTypes.number, to: PropTypes.number, fromName: PropTypes.string, toName: PropTypes.string, key: PropTypes.string }).isRequired,
-  isSelected: PropTypes.bool.isRequired,
-  onAdd:      PropTypes.func.isRequired,
-  disabled:   PropTypes.bool.isRequired,
-};
-
 function PlanningView({ game, network }) {
   const navigate = useNavigate();
 
-  const [route, setRoute]   = useState([]);
-  const [status, setStatus] = useState('idle'); // 'idle' | 'submitting' | 'done'
-  const [error, setError]   = useState('');
-  const inFlightRef         = useRef(false);
+  const [route, setRoute]     = useState([]);
+  const [status, setStatus]   = useState('idle');
+  const [error, setError]     = useState('');
+  const [mapOpen, setMapOpen] = useState(false);
+  const submittingRef         = useRef(false);
 
-  const segments       = useMemo(() => buildSegments(network.lines), [network]);
-  const selectedKeys   = useMemo(() => new Set(route.map(s => s.key)), [route]);
-  const emptySet       = useMemo(() => new Set(), []);
+  const segments     = useMemo(() => buildSegments(network.lines), [network]);
+  const selectedKeys = useMemo(() => new Set(route.map(s => s.key)), [route]);
+  const emptySet     = useMemo(() => new Set(), []);
 
   const currentTail = route.length === 0
     ? game.startStation.id
     : route[route.length - 1].to;
 
   const handleSubmit = async () => {
-    if (inFlightRef.current || status !== 'idle') return;
-    inFlightRef.current = true;
+    if (submittingRef.current || status !== 'idle') return;
+    submittingRef.current = true;
     setStatus('submitting');
     try {
       const result = await submitRoute(game.gameId, route.map(s => ({ from: s.from, to: s.to })));
-      // inFlightRef intentionally not reset — component unmounts on navigate
       navigate(`/game/${game.gameId}/execution`, { state: { game, result } });
     } catch (err) {
-      inFlightRef.current = false;
+      submittingRef.current = false;
       setStatus('idle');
       setError(err.message ?? 'Could not submit your route. Please try again.');
     }
@@ -90,81 +67,117 @@ function PlanningView({ game, network }) {
                  : timeLeft <= 30 ? 'lr-timer--warning'
                  : '';
 
-  const addSegment = (seg) => {
-    if (status !== 'idle' || selectedKeys.has(seg.key)) return;
-    // Reverse only when the "to" end matches the tail — avoids backwards display for naturally-connected
-    // segments. Disconnected segments are added as-is; server validates the full route after submission.
-    if (seg.to === currentTail) {
+  const toggleSegment = (seg) => {
+    if (status !== 'idle') return;
+    if (selectedKeys.has(seg.key)) {
+      setRoute(r => r.filter(s => s.key !== seg.key));
+    } else if (seg.to === currentTail) {
       setRoute(r => [...r, { from: seg.to, to: seg.from, fromName: seg.toName, toName: seg.fromName, key: seg.key }]);
     } else {
       setRoute(r => [...r, seg]);
     }
   };
 
+  useEffect(() => {
+    if (!mapOpen) return;
+    const onKey = (e) => { if (e.key === 'Escape') setMapOpen(false); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [mapOpen]);
+
   return (
-    <main className="lr-page">
-      <div className="lr-planning-header">
-        <div className="lr-mission">
+    <Container style={{ maxWidth: 1100 }} className="py-4 px-4 pb-5">
+      <div className="lr-planning-header mb-4">
+        <div className="d-flex align-items-center gap-2 flex-wrap">
           <span className="lr-mission-label">From</span>
-          <span className="lr-mission-station">{game.startStation.name}</span>
-          <span className="lr-mission-arrow">→</span>
+          <span className="fw-bold">{game.startStation.name}</span>
+          <span className="lr-mission-arrow mx-1">→</span>
           <span className="lr-mission-label">To</span>
-          <span className="lr-mission-station">{game.destStation.name}</span>
+          <span className="fw-bold">{game.destStation.name}</span>
         </div>
         <div className={`lr-timer ${timerCls}`}>{minutes}:{seconds}</div>
       </div>
 
-      {error && <p className="lr-error lr-error--spaced">{error}</p>}
+      {error && (
+        <Alert variant="danger" className="py-2 px-3 small" dismissible onClose={() => setError('')}>
+          {error}
+        </Alert>
+      )}
 
-      <div className="lr-planning-body">
-        <section>
-          <p className="lr-card-title">Choose segments</p>
-          <div className="lr-segment-list">
+      <Row className="g-4 align-items-start">
+        <Col>
+          <p className="text-uppercase fw-bold text-muted small mb-3">Choose segments</p>
+          <ListGroup>
             {segments.map(seg => (
-              <SegmentItem
+              <ListGroup.Item
                 key={seg.key}
-                seg={seg}
-                isSelected={selectedKeys.has(seg.key)}
-                onAdd={addSegment}
+                as="button"
+                action
+                active={selectedKeys.has(seg.key)}
                 disabled={status !== 'idle'}
-              />
+                onClick={() => toggleSegment(seg)}
+                className="lr-segment-item text-start"
+              >
+                {seg.fromName} ↔ {seg.toName}
+              </ListGroup.Item>
             ))}
+          </ListGroup>
+        </Col>
+
+        <Col xs={12} md="auto" style={{ width: 300 }}>
+          <div className="d-flex flex-column gap-3">
+            <Card className="border">
+              <Card.Body>
+                <p className="text-uppercase fw-bold text-muted small mb-3 d-flex justify-content-between align-items-center">
+                  Your route
+                  <span className="fw-normal" style={{ textTransform: 'none', letterSpacing: 0 }}>
+                    {route.length} segment{route.length !== 1 ? 's' : ''}
+                  </span>
+                </p>
+                <ol className="list-unstyled mb-3">
+                  {route.length === 0
+                    ? <li className="text-muted small fst-italic ps-2">No segments selected yet</li>
+                    : route.map(seg => (
+                        <li key={seg.key} className="small text-secondary ps-2 mb-1"
+                            style={{ borderLeft: '2px solid var(--border)' }}>
+                          {seg.fromName} → {seg.toName}
+                        </li>
+                      ))
+                  }
+                </ol>
+                {route.length > 0 && (
+                  <Button variant="link" size="sm" className="p-0 text-muted"
+                          onClick={removeLast} disabled={status !== 'idle'}>
+                    ← Remove last
+                  </Button>
+                )}
+              </Card.Body>
+            </Card>
+
+            <button className="lr-map-thumb" onClick={() => setMapOpen(true)} title="Click to enlarge map">
+              <MetroMap mode="stationsOnly" lines={[]} stations={network.stations} interchanges={emptySet} />
+              <span className="lr-map-thumb-hint">
+                <i className="bi bi-arrows-fullscreen me-1" />Enlarge
+              </span>
+            </button>
+
+            <Button variant="dark" className="w-100 text-uppercase fw-bold"
+                    onClick={handleSubmit} disabled={status === 'submitting' || timeLeft === 0}>
+              {status === 'submitting' ? 'Submitting…' : 'Submit Route'}
+            </Button>
           </div>
-        </section>
+        </Col>
+      </Row>
 
-        <section className="lr-planning-right">
-          <div className="lr-card">
-            <p className="lr-card-title">
-              Your route
-              <span className="lr-route-count">{route.length} segment{route.length !== 1 ? 's' : ''}</span>
-            </p>
-            <ol className="lr-route-chain">
-              {route.length === 0
-                ? <li className="lr-route-chain__empty">No segments selected yet</li>
-                : route.map(seg => (
-                    <li key={seg.key} className="lr-route-chain__station">
-                      {seg.fromName} → {seg.toName}
-                    </li>
-                  ))
-              }
-            </ol>
-            {route.length > 0 && (
-              <button className="lr-btn-remove-last" onClick={removeLast} disabled={status !== 'idle'}>
-                ← Remove last
-              </button>
-            )}
-          </div>
-
-          {/* lines={[]} intentional — planning mode shows station dots only, not line tracks */}
-          <MetroMap mode="planning" lines={[]} stations={network.stations} interchanges={emptySet} />
-
-          {/* intentional: disabled check omits timeLeft === 0 (Bug #2, fixed in fix/planning-timer) */}
-          <button className="lr-btn-primary" onClick={handleSubmit} disabled={status === 'submitting'}>
-            {status === 'submitting' ? 'Submitting…' : 'Submit Route'}
-          </button>
-        </section>
-      </div>
-    </main>
+      <Modal show={mapOpen} onHide={() => setMapOpen(false)} size="xl" centered>
+        <Modal.Header closeButton>
+          <Modal.Title className="text-uppercase fw-bold small text-muted">Metro Network</Modal.Title>
+        </Modal.Header>
+        <Modal.Body className="p-3">
+          <MetroMap mode="stationsOnly" lines={[]} stations={network.stations} interchanges={emptySet} />
+        </Modal.Body>
+      </Modal>
+    </Container>
   );
 }
 

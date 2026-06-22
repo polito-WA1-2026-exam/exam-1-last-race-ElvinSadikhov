@@ -99,7 +99,7 @@ function PlanningView({ game, network }) {
       </div>
 
       {error && (
-        <Alert variant="danger" className="py-2 px-3 small" dismissible onClose={() => setError('')}>
+        <Alert variant="danger" className="small" dismissible onClose={() => setError('')}>
           {error}
         </Alert>
       )}

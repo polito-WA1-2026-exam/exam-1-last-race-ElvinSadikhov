@@ -55,7 +55,7 @@ export default function SetupPage() {
         </Col>
         <Col xs="auto" className="d-flex flex-column align-items-end gap-2">
           {error && (
-            <Alert variant="danger" className="py-2 px-3 small mb-0" dismissible onClose={() => setError('')}>
+            <Alert variant="danger" className="small mb-0" dismissible onClose={() => setError('')}>
               {error}
             </Alert>
           )}
